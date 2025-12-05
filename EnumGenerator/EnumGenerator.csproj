@@ -12,8 +12,6 @@
         <RootNamespace>EnumGenerator</RootNamespace>
         <PackageId>Seiori.EnumGenerator</PackageId>
 
-        <Version>1.0.0</Version>
-
         <Authors>Seiori</Authors>
         <Description>Source generator for Enum extensions.</Description>
 
