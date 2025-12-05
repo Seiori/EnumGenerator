@@ -19,6 +19,8 @@
         <RepositoryType>git</RepositoryType>
         <ProjectUrl>https://github.com/Seiori/EnumGenerator</ProjectUrl>
 
+        <Version>1.0.1</Version>
+
         <PackageReadmeFile>README.md</PackageReadmeFile>
 
         <IncludeBuildOutput>false</IncludeBuildOutput>
