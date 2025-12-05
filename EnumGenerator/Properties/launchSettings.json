@@ -1,9 +1,0 @@
-{
-  "$schema": "https://json.schemastore.org/launchsettings.json",
-  "profiles": {
-    "DebugRoslynSourceGenerator": {
-      "commandName": "DebugRoslynComponent",
-      "targetProject": "../EnumGenerator.Sample/EnumGenerator.Sample.csproj"
-    }
-  }
-}

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
@@ -8,35 +9,17 @@ using Microsoft.CodeAnalysis.Text;
 namespace EnumGenerator;
 
 public readonly record struct EnumMemberInfo(
-    string Name
+    string Name,
+    string? DisplayName,
+    string? SerializedName
 );
 
 public readonly record struct EnumToGenerate(
     string Name,
     string Namespace,
     string UnderlyingType,
-    ImmutableArray<EnumMemberInfo> Members)
-{
-    public bool Equals(EnumToGenerate other)
-    {
-        return Name == other.Name &&
-               Namespace == other.Namespace &&
-               UnderlyingType == other.UnderlyingType &&
-               Members.SequenceEqual(other.Members);
-    }
-
-    public override int GetHashCode()
-    {
-        unchecked
-        {
-            var hashCode = Name.GetHashCode();
-            hashCode = (hashCode * 397) ^ Namespace.GetHashCode();
-            hashCode = (hashCode * 397) ^ UnderlyingType.GetHashCode();
-            hashCode = (hashCode * 397) ^ Members.Length; 
-            return hashCode;
-        }
-    }
-}
+    ImmutableArray<EnumMemberInfo> Members
+);
 
 [Generator]
 public class MyEnumGenerator : IIncrementalGenerator
@@ -66,14 +49,64 @@ public class MyEnumGenerator : IIncrementalGenerator
         {
             if (member is IFieldSymbol { IsConst: true } fieldSymbol)
             {
-                members.Add(new EnumMemberInfo(fieldSymbol.Name));
+                string? displayName = null;
+                string? serializedName = null;
+
+                foreach (var attribute in fieldSymbol.GetAttributes())
+                {
+                    var attrClass = attribute.AttributeClass?.ToDisplayString();
+
+                    switch (attrClass)
+                    {
+                        case "System.ComponentModel.DataAnnotations.DisplayAttribute":
+                        {
+                            var nameArg = attribute.NamedArguments.FirstOrDefault(x => x.Key == "Name");
+                            if (nameArg.Key is not null)
+                            {
+                                displayName = nameArg.Value.Value?.ToString();
+                            }
+
+                            break;
+                        }
+                        case "System.ComponentModel.DescriptionAttribute":
+                        {
+                            if (attribute.ConstructorArguments.Length > 0 && displayName is null)
+                            {
+                                displayName = attribute.ConstructorArguments[0].Value?.ToString();
+                            }
+
+                            break;
+                        }
+                        case "System.Runtime.Serialization.EnumMemberAttribute":
+                        {
+                            var valueArg = attribute.NamedArguments.FirstOrDefault(x => x.Key == "Value");
+                            if (valueArg.Key is not null)
+                            {
+                                serializedName = valueArg.Value.Value?.ToString();
+                            }
+
+                            break;
+                        }
+                        case "System.Text.Json.Serialization.JsonPropertyNameAttribute":
+                        {
+                            if (attribute.ConstructorArguments.Length > 0)
+                            {
+                                serializedName = attribute.ConstructorArguments[0].Value?.ToString();
+                            }
+
+                            break;
+                        }
+                    }
+                }
+
+                members.Add(new EnumMemberInfo(fieldSymbol.Name, displayName, serializedName));
             }
         }
 
-        var ns = enumSymbol.ContainingNamespace.IsGlobalNamespace 
-            ? string.Empty 
+        var ns = enumSymbol.ContainingNamespace.IsGlobalNamespace
+            ? string.Empty
             : enumSymbol.ContainingNamespace.ToString();
-            
+
         var underlyingType = enumSymbol.EnumUnderlyingType?.ToDisplayString() ?? "int";
 
         return new EnumToGenerate(enumSymbol.Name, ns, underlyingType, members.ToImmutable());
@@ -94,6 +127,54 @@ public class MyEnumGenerator : IIncrementalGenerator
 
             public static class {{enumToGen.Name}}Extensions
             {
+                public const int Length = {{enumToGen.Members.Length}};
+
+                private static readonly {{enumToGen.Name}}[] _values = new[]
+                {
+            """);
+
+        foreach (var member in enumToGen.Members)
+        {
+            sb.Append($"        {enumToGen.Name}.{member.Name},");
+        }
+
+        sb.Append($$"""
+
+                };
+
+                private static readonly string[] _names = new[]
+                {
+            """);
+
+        foreach (var member in enumToGen.Members)
+        {
+            sb.Append($"        \"{member.Name}\",");
+        }
+
+        sb.Append($$"""
+
+                };
+
+                public static ReadOnlySpan<{{enumToGen.Name}}> GetValues() => _values;
+
+                public static ReadOnlySpan<string> GetNames() => _names;
+
+                public static bool IsDefined({{enumToGen.Name}} value)
+                {
+                    return value switch
+                    {
+            """);
+
+        foreach (var member in enumToGen.Members)
+        {
+            sb.AppendLine($"            {enumToGen.Name}.{member.Name} => true,");
+        }
+
+        sb.Append($$"""
+                        _ => false
+                    };
+                }
+
                 public static string GetString(this {{enumToGen.Name}} value)
                 {
                     return value switch
@@ -104,6 +185,25 @@ public class MyEnumGenerator : IIncrementalGenerator
         {
             sb.AppendLine();
             sb.Append($"            {enumToGen.Name}.{member.Name} => \"{member.Name}\",");
+        }
+
+        sb.Append($$"""
+
+                        _ => value.ToString()
+                    };
+                }
+
+                public static string GetDisplayValue(this {{enumToGen.Name}} value)
+                {
+                     return value switch
+                     {
+            """);
+
+        foreach (var member in enumToGen.Members)
+        {
+            var display = member.DisplayName ?? member.Name;
+            sb.AppendLine();
+            sb.Append($"            {enumToGen.Name}.{member.Name} => \"{display}\",");
         }
 
         sb.Append($$"""
@@ -171,19 +271,28 @@ public class MyEnumGenerator : IIncrementalGenerator
                     {
             """);
 
-        var groupedByLength = enumToGen.Members
-            .GroupBy(x => x.Name.Length)
+        var parseTokens = new List<(string Token, string MemberName)>();
+        
+        foreach(var member in enumToGen.Members)
+        {
+            parseTokens.Add(!string.IsNullOrEmpty(member.SerializedName)
+                ? (member.SerializedName!, member.Name)
+                : (member.Name, member.Name));
+        }
+
+        var groupedByLength = parseTokens
+            .GroupBy(x => x.Token.Length)
             .OrderBy(x => x.Key);
 
         foreach (var group in groupedByLength)
         {
             sb.AppendLine();
             sb.AppendLine($"            case {group.Key}:");
-            foreach (var member in group)
+            foreach (var (token, memberName) in group)
             {
-                sb.AppendLine($"                if (span.Equals(\"{member.Name}\", StringComparison.OrdinalIgnoreCase))");
+                sb.AppendLine($"                if (span.Equals(\"{token}\", StringComparison.OrdinalIgnoreCase))");
                 sb.AppendLine("                {");
-                sb.AppendLine($"                    result = {enumToGen.Name}.{member.Name};");
+                sb.AppendLine($"                    result = {enumToGen.Name}.{memberName};");
                 sb.AppendLine("                    return true;");
                 sb.AppendLine("                }");
             }
