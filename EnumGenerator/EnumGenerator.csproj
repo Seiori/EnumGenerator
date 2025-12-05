@@ -10,12 +10,20 @@
         <IsRoslynComponent>true</IsRoslynComponent>
 
         <RootNamespace>EnumGenerator</RootNamespace>
-        <PackageId>Seiori.EnumGenerator</PackageId> <Version>1.0.0</Version>
+        <PackageId>Seiori.EnumGenerator</PackageId>
+
+        <Version>1.0.0</Version>
+
         <Authors>Seiori</Authors>
         <Description>Source generator for Enum extensions.</Description>
 
-        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <RepositoryUrl>https://github.com/Seiori/EnumGenerator</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <ProjectUrl>https://github.com/Seiori/EnumGenerator</ProjectUrl>
 
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <IncludeBuildOutput>false</IncludeBuildOutput>
         <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     </PropertyGroup>
 
@@ -27,6 +35,10 @@
 
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.0" PrivateAssets="all" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.3.0" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
 
     <ItemGroup>
