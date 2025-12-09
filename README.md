@@ -11,14 +11,16 @@ dotnet add package Seiori.EnumGenerator
 ## How To Use
 
 1.  **Define your Enum.**
-    The generator automatically detects your enum and creates the extensions in the background. You can use standard attributes like `[Display]`, `[Description]`, or `[EnumMember]`.
+    The generator automatically detects your enum and creates the extensions in the background. You can use standard attributes like `[Display]`, `[Description]`, `[EnumMember]`, or `[JsonPropertyName]`.
 
     ```csharp
     using System.ComponentModel.DataAnnotations;
+    using System.Runtime.Serialization;
 
     public enum Status
     {
         [Display(Name = "Ready to Start")]
+        [EnumMember(Value = "pending_status")]
         Pending,
 
         [Display(Name = "In Progress")]
@@ -38,7 +40,10 @@ dotnet add package Seiori.EnumGenerator
     // 2. Get the human-readable name (Reads [Display] or [Description])
     string display = Status.Pending.GetDisplayValue(); // Returns "Ready to Start"
 
-    // 3. Fast Parsing (Zero allocation)
+    // 3. Get the serialized value (Reads [EnumMember] or [JsonPropertyName])
+    string json = Status.Pending.GetEnumMemberValue(); // Returns "pending_status"
+
+    // 4. Fast Parsing (Zero allocation)
     if (StatusExtensions.TryParse("Active", out Status result))
     {
         // result is Status.Active
@@ -62,9 +67,10 @@ For an enum named `MyEnum`, the following methods are generated:
 | Method | Description |
 | :--- | :--- |
 | `value.GetString()` | Returns the member name. Replaces `ToString()`. |
+| `value.GetEnumMemberValue()` | Returns the string from `[EnumMember(Value)]` or `[JsonPropertyName]`. Falls back to the member name if missing. |
+| `value.GetDisplayValue()` | Returns the string from `[Display]`, `[Description]`, or the member name (in that priority). |
 | `value.GetStringUpperCase()` | Returns the name in uppercase (e.g., "ACTIVE"). |
 | `value.GetStringLowerCase()` | Returns the name in lowercase (e.g., "active"). |
-| `value.GetDisplayValue()` | Returns the string from `[Display]`, `[Description]`, or the member name (in that priority). |
 
 ### 3\. Parsing
 

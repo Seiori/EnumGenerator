@@ -193,6 +193,25 @@ public class MyEnumGenerator : IIncrementalGenerator
                     };
                 }
 
+                public static string GetEnumMemberValue(this {{enumToGen.Name}} value)
+                {
+                    return value switch
+                    {
+            """);
+
+        foreach (var member in enumToGen.Members)
+        {
+            var serialized = member.SerializedName ?? member.Name;
+            sb.AppendLine();
+            sb.Append($"            {enumToGen.Name}.{member.Name} => \"{serialized}\",");
+        }
+
+        sb.Append($$"""
+
+                        _ => value.ToString()
+                    };
+                }
+
                 public static string GetDisplayValue(this {{enumToGen.Name}} value)
                 {
                      return value switch
