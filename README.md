@@ -11,16 +11,16 @@ dotnet add package Seiori.EnumGenerator
 ## How To Use
 
 1.  **Define your Enum.**
-    The generator automatically detects your enum and creates the extensions in the background. You can use standard attributes like `[Display]`, `[Description]`, `[EnumMember]`, or `[JsonPropertyName]`.
+    The generator automatically detects your enum and creates the extensions in the background. You can use standard attributes like `[Display]`, `[Description]`, or `[JsonPropertyName]`.
 
     ```csharp
     using System.ComponentModel.DataAnnotations;
-    using System.Runtime.Serialization;
+    using System.Text.Json.Serialization;
 
     public enum Status
     {
         [Display(Name = "Ready to Start")]
-        [EnumMember(Value = "pending_status")]
+        [JsonPropertyName("pending_status")]
         Pending,
 
         [Display(Name = "In Progress")]
@@ -34,13 +34,14 @@ dotnet add package Seiori.EnumGenerator
     The generator creates a static class named `[YourEnum]Extensions`. Most methods are available directly on the enum value.
 
     ```csharp
+    using System.Text.Json;
     // 1. Get the code name (Faster than .ToString())
     string name = Status.Active.GetString(); // Returns "Active"
 
     // 2. Get the human-readable name (Reads [Display] or [Description])
     string display = Status.Pending.GetDisplayValue(); // Returns "Ready to Start"
 
-    // 3. Get the serialized value (Reads [EnumMember] or [JsonPropertyName])
+    // 3. Get the serialized value (Reads [JsonPropertyName])
     string json = Status.Pending.GetEnumMemberValue(); // Returns "pending_status"
 
     // 4. Fast Parsing (Zero allocation)
@@ -48,6 +49,13 @@ dotnet add package Seiori.EnumGenerator
     {
         // result is Status.Active
     }
+
+    // 5. JSON converter (System.Text.Json)
+    var options = new JsonSerializerOptions();
+    options.Converters.Add(StatusExtensions.JsonConverter);
+
+    string payload = JsonSerializer.Serialize(Status.Pending, options); // "pending_status"
+    Status parsed = JsonSerializer.Deserialize<Status>("\"pending_status\"", options);
     ```
 
 ## Available Methods
@@ -59,6 +67,7 @@ For an enum named `MyEnum`, the following methods are generated:
 | Method | Description |
 | :--- | :--- |
 | `MyEnumExtensions.Length` | A constant `int` for the total number of enum members. |
+| `MyEnumExtensions.JsonConverter` | A generated `JsonConverter<MyEnum>` for direct `System.Text.Json` serialization. |
 | `GetValues()` | Returns all enum values as a `ReadOnlySpan<MyEnum>`. |
 | `GetNames()` | Returns all enum names as a `ReadOnlySpan<string>`. |
 
@@ -67,7 +76,7 @@ For an enum named `MyEnum`, the following methods are generated:
 | Method | Description |
 | :--- | :--- |
 | `value.GetString()` | Returns the member name. Replaces `ToString()`. |
-| `value.GetEnumMemberValue()` | Returns the string from `[EnumMember(Value)]` or `[JsonPropertyName]`. Falls back to the member name if missing. |
+| `value.GetEnumMemberValue()` | Returns the string from `[JsonPropertyName]`. Falls back to the member name if missing. |
 | `value.GetDisplayValue()` | Returns the string from `[Display]`, `[Description]`, or the member name (in that priority). |
 | `value.GetStringUpperCase()` | Returns the name in uppercase (e.g., "ACTIVE"). |
 | `value.GetStringLowerCase()` | Returns the name in lowercase (e.g., "active"). |

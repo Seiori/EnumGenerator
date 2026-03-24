@@ -75,15 +75,6 @@ public class MyEnumGenerator : IIncrementalGenerator
                                 displayName = attribute.ConstructorArguments[0].Value?.ToString();
                             }
 
-                            break;
-                        }
-                        case "System.Runtime.Serialization.EnumMemberAttribute":
-                        {
-                            var valueArg = attribute.NamedArguments.FirstOrDefault(x => x.Key == "Value");
-                            if (valueArg.Key is not null)
-                            {
-                                serializedName = valueArg.Value.Value?.ToString();
-                            }
 
                             break;
                         }
@@ -122,6 +113,8 @@ public class MyEnumGenerator : IIncrementalGenerator
             #nullable enable
             using System;
             using System.Runtime.CompilerServices;
+            using System.Text.Json;
+            using System.Text.Json.Serialization;
 
             {{nsDeclaration}}
 
@@ -154,6 +147,8 @@ public class MyEnumGenerator : IIncrementalGenerator
         sb.Append($$"""
 
                 };
+
+                public static {{enumToGen.Name}}JsonConverter JsonConverter { get; } = new();
 
                 public static ReadOnlySpan<{{enumToGen.Name}}> GetValues() => _values;
 
@@ -334,6 +329,30 @@ public class MyEnumGenerator : IIncrementalGenerator
                         return result;
                     }
                     throw new ArgumentException($"Requested value '{span.ToString()}' was not found in enum '{{enumToGen.Name}}'.");
+                }
+            }
+
+            public sealed class {{enumToGen.Name}}JsonConverter : JsonConverter<{{enumToGen.Name}}>
+            {
+                public override {{enumToGen.Name}} Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+                {
+                    if (reader.TokenType != JsonTokenType.String)
+                    {
+                        throw new JsonException($"Unable to convert token type '{reader.TokenType}' to enum '{{enumToGen.Name}}'.");
+                    }
+
+                    var value = reader.GetString();
+                    if ({{enumToGen.Name}}Extensions.TryParse(value, out var result))
+                    {
+                        return result;
+                    }
+
+                    throw new JsonException($"Unable to convert '{value}' to enum '{{enumToGen.Name}}'.");
+                }
+
+                public override void Write(Utf8JsonWriter writer, {{enumToGen.Name}} value, JsonSerializerOptions options)
+                {
+                    writer.WriteStringValue(value.GetEnumMemberValue());
                 }
             }
             """);
