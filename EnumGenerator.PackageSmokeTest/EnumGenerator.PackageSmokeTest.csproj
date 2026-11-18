@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+      Consumes the packed Seiori.EnumGenerator .nupkg from ../nupkg exactly as a user would, to prove the package
+      itself works. Deliberately not part of EnumGenerator.slnx: it can only restore after the package has been
+      packed into ../nupkg. The README's Building section has the two commands.
+    -->
+    <PropertyGroup>
+        <TargetFramework>net11.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <!-- A private package folder: the freshly packed build is never shadowed by, or left behind in, the user's global cache. -->
+        <RestorePackagesPath>$(MSBuildThisFileDirectory)obj\packages</RestorePackagesPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- Whatever version is in ../nupkg; nuget.config maps this package to that folder only. -->
+        <PackageReference Include="Seiori.EnumGenerator" Version="*-*" PrivateAssets="all" />
+    </ItemGroup>
+
+</Project>

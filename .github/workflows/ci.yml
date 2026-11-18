@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 11.0.x
+
+      - name: Build
+        run: dotnet build EnumGenerator.slnx --configuration Release -p:ContinuousIntegrationBuild=true
+
+      - name: Test
+        run: dotnet test --project EnumGenerator.Tests/EnumGenerator.Tests.csproj --configuration Release --no-build
+
+      - name: Pack
+        run: dotnet pack EnumGenerator/EnumGenerator.csproj --configuration Release --no-build --output ./nupkg
+
+      # Installs the package just packed into a separate project and runs it: catches packaging mistakes
+      # (wrong folder, missing file) that the tests cannot see because they reference the project directly.
+      - name: Smoke-test the package
+        run: dotnet run --project EnumGenerator.PackageSmokeTest --configuration Release

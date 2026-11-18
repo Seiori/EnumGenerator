@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="EnumGenerator/EnumGenerator.csproj" />
+  <Project Path="EnumGenerator.Tests/EnumGenerator.Tests.csproj" />
+  <Project Path="EnumGenerator.Benchmarks/EnumGenerator.Benchmarks.csproj" />
 </Solution>

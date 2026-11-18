@@ -2,49 +2,59 @@
 
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
-        <IsPackable>true</IsPackable>
-        <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <AssemblyName>Seiori.EnumGenerator</AssemblyName>
+        <RootNamespace>Seiori.EnumGenerator</RootNamespace>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <Deterministic>true</Deterministic>
 
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <IsRoslynComponent>true</IsRoslynComponent>
 
-        <RootNamespace>EnumGenerator</RootNamespace>
+        <IsPackable>true</IsPackable>
         <PackageId>Seiori.EnumGenerator</PackageId>
-
+        <Version>2.0.0</Version>
         <Authors>Seiori</Authors>
-        <Description>Source generator for Enum extensions.</Description>
-
+        <Description>High-performance, allocation-free enum extensions (ToString, IsDefined, Parse, display/serialized names) and a reflection-free System.Text.Json converter, generated at compile time.</Description>
+        <PackageTags>source-generator;enum;enums;roslyn;performance;system.text.json;aot</PackageTags>
         <RepositoryUrl>https://github.com/Seiori/EnumGenerator</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
-        <ProjectUrl>https://github.com/Seiori/EnumGenerator</ProjectUrl>
-
-        <Version>1.0.1</Version>
-
+        <PackageProjectUrl>https://github.com/Seiori/EnumGenerator</PackageProjectUrl>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Copyright>Copyright (c) 2025-2026 Seiori</Copyright>
 
+        <!-- Compile-time only: consumers' own packages must not take a dependency on this one. -->
+        <DevelopmentDependency>true</DevelopmentDependency>
         <IncludeBuildOutput>false</IncludeBuildOutput>
         <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+        <!-- NU5128: no lib/ folder is intentional for an analyzer-only package. -->
+        <NoWarn>$(NoWarn);NU5128</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.3.0">
+        <!--
+          Keep this as low as the APIs allow (ForAttributeWithMetadataName needs 4.3.1). A compiler older than the
+          referenced Roslyn refuses to load the generator (CS9057), so a newer reference locks out older SDKs/IDEs.
+          4.3.1 ships with the .NET 6.0.400 SDK / Visual Studio 2022 17.3.
+        -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.1" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
+    </ItemGroup>
 
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" PrivateAssets="all" />
+    <ItemGroup>
+        <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+        <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+        <InternalsVisibleTo Include="EnumGenerator.Tests" />
     </ItemGroup>
 
     <ItemGroup>
         <None Include="..\README.md" Pack="true" PackagePath="\" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <None Include="$(OutputPath)\$(AssemblyName).dll"
-              Pack="true"
-              PackagePath="analyzers/dotnet/cs"
-              Visible="false" />
+        <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     </ItemGroup>
 
 </Project>

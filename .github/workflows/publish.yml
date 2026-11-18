@@ -4,31 +4,59 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: read
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # lets this job prove to nuget.org which repository and workflow it is
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 10.0.x 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 11.0.x
 
-    - name: Restore
-      run: dotnet restore EnumGenerator/EnumGenerator.csproj
+      # Accept both "1.2.3" and "v1.2.3" tags. The tag is passed through an env var, never interpolated into the script.
+      - name: Resolve package version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="${TAG#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag '$TAG' is not a valid package version" >&2
+            exit 1
+          fi
+          echo "PACKAGE_VERSION=$VERSION" >> "$GITHUB_ENV"
 
-    - name: Pack
-      run: |
-        dotnet pack EnumGenerator/EnumGenerator.csproj \
-        --configuration Release \
-        --output ./nupkg \
-        -p:PackageVersion=${{ github.event.release.tag_name }}
+      - name: Build
+        run: dotnet build EnumGenerator.slnx --configuration Release -p:ContinuousIntegrationBuild=true -p:Version=$PACKAGE_VERSION
 
-    - name: Push to NuGet
-      run: |
-        dotnet nuget push ./nupkg/*.nupkg \
-        --source https://api.nuget.org/v3/index.json \
-        --api-key ${{ secrets.NUGET_API_KEY }} \
-        --skip-duplicate
+      - name: Test
+        run: dotnet test --project EnumGenerator.Tests/EnumGenerator.Tests.csproj --configuration Release --no-build
+
+      - name: Pack
+        run: dotnet pack EnumGenerator/EnumGenerator.csproj --configuration Release --no-build --output ./nupkg -p:Version=$PACKAGE_VERSION
+
+      # Nothing is pushed unless the package installs and runs in a separate project.
+      - name: Smoke-test the package
+        run: dotnet run --project EnumGenerator.PackageSmokeTest --configuration Release
+
+      # Trusted publishing: nuget.org checks this workflow's identity against the policy on the account and
+      # hands back an API key that lasts one hour. No long-lived key is stored anywhere. Requested last, right
+      # before the push, so it cannot expire first.
+      - name: NuGet login
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }} # nuget.org username (profile name), not the email address
+
+      - name: Push to NuGet
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: dotnet nuget push ./nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
